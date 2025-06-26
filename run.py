@@ -7,7 +7,7 @@ import torch.optim as optim
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 import wandb
-
+from datetime import date
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 import torch.distributed as dist
@@ -34,14 +34,48 @@ import gc
 import argparse
 import functools
 from utils import Config, set_seed
-
+import random
+import string
 
 def main():
-
     parser = argparse.ArgumentParser(description="coconut")
-    parser.add_argument("config_file")
-    args = parser.parse_args()
+    # Basic config
+    parser.add_argument("--project", type=str)
+    parser.add_argument("--save_path", type=str)
+    parser.add_argument("--name", type=str)
 
+    # Booleans / Flags
+    parser.add_argument("--only_eval", action="store_true")
+    parser.add_argument("--coconut", action="store_true")
+    parser.add_argument("--cot", action="store_true")
+    parser.add_argument("--no_thoughts", action="store_true")
+    parser.add_argument("--no_cot", action="store_true")
+    parser.add_argument("--pad_latent_to_max", action="store_true")
+    parser.add_argument("--save_only_improve", action="store_true")
+    parser.add_argument("--debug", action="store_true")
+    parser.add_argument("--bf16", action="store_true")
+    parser.add_argument("--reset_optimizer", action="store_true")
+
+    # Integer / Float / String args
+    parser.add_argument("--c_thought", type=int)
+    parser.add_argument("--epochs_per_stage", type=int)
+    parser.add_argument("--max_latent_stage", type=int)
+    parser.add_argument("--uniform_prob", type=float)
+    parser.add_argument("--model_id", type=str)
+    parser.add_argument("--load_model_path", type=str)
+    parser.add_argument("--seed", type=int)
+    parser.add_argument("--resume", type=int)
+    parser.add_argument("--train_path", type=str)
+    parser.add_argument("--val_path", type=str)
+    parser.add_argument("--batch_size_training", type=int)
+    parser.add_argument("--gradient_accumulation_steps", type=int)
+    parser.add_argument("--num_epochs", type=int)
+    parser.add_argument("--weight_decay", type=float)
+    parser.add_argument("--slurm_run_name", type=str)
+    parser.add_argument("--lr", type=float)
+
+    configs = parser.parse_args()
+    today_str = date.today().strftime("%Y%m%d")
     # init distributed environment
     dist.init_process_group("nccl")
     local_rank = int(os.environ["LOCAL_RANK"])
@@ -49,14 +83,12 @@ def main():
     world_size = int(os.environ["WORLD_SIZE"])
     torch.cuda.set_device(local_rank)
 
-    # load the configuration file
-    with open(args.config_file) as f:
-        config_dict = yaml.safe_load(f)
-
+    rand_str = ''.join(random.choices(string.ascii_letters + string.digits, k=5))
+    configs.name = f"{today_str}_{configs.name}_{rand_str}"
     if rank == 0:
-        print("Config:", config_dict)
+        print("Config:", configs)
+    
 
-    configs = Config(config_dict)
     set_seed(configs.seed)
     save_dir = os.path.join(configs.save_path, configs.name)
 
@@ -218,7 +250,7 @@ def main():
     total_train_steps = 0
 
     if not configs.debug and not configs.only_eval and rank == 0:
-        wandb_run = wandb.init(project=configs.project, name=configs.name)
+        wandb_run = wandb.init(project=configs.project, name=configs.name, entity="harvardml")
         wandb_run.config.update(configs, allow_val_change=True)
         text_table = wandb.Table(columns=["step", "text"])
 

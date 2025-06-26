@@ -6,6 +6,7 @@ import torch.nn as nn
 from torch.nn import CrossEntropyLoss
 from collections import namedtuple
 from transformers.models.gpt2 import GPT2LMHeadModel
+from transformers import DynamicCache
 
 Outputs = namedtuple("Outputs", ["loss", "inputs_embeds", "logits"])
 MAX_N_LATENT = 8
@@ -80,13 +81,14 @@ class Coconut(nn.Module):
 
             else:
                 # extract kv cache to reuse
-                past_key_values = [
+                legacy_past = [
                     (
                         k[:, :, : next_compute_range[0], :],
                         v[:, :, : next_compute_range[0], :],
                     )
                     for k, v in kv_cache
                 ]
+                past_key_values = DynamicCache.from_legacy_cache(legacy_past)
 
                 outputs = self.base_causallm(
                     inputs_embeds=inputs_embeds[
@@ -158,23 +160,27 @@ class Coconut(nn.Module):
             )
 
         # final pass
+        # build the legacy list-of-tuples exactly as before
+        past_key_values = None
+        if kv_cache:
+            legacy_past = [
+                (
+                    k[:, :, : next_compute_range[0], :].contiguous(),   # K_i
+                    v[:, :, : next_compute_range[0], :].contiguous(),   # V_i
+                )
+                for k, v in kv_cache
+            ]
+
+            # convert it to the new object
+            past_key_values = DynamicCache.from_legacy_cache(legacy_past)
+
         outputs = self.base_causallm(
             inputs_embeds=inputs_embeds[
                 :, next_compute_range[0] : next_compute_range[1], :
             ],
             attention_mask=attention_mask[:, : next_compute_range[1]],
             position_ids=position_ids[:, next_compute_range[0] : next_compute_range[1]],
-            past_key_values=(
-                [
-                    (
-                        k[:, :, : next_compute_range[0], :],
-                        v[:, :, : next_compute_range[0], :],
-                    )
-                    for k, v in kv_cache
-                ]
-                if kv_cache
-                else None
-            ),
+            past_key_values=past_key_values,
             output_hidden_states=True,
         )
 
