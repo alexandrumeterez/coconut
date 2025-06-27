@@ -10,6 +10,7 @@ import os
 import time
 import sys
 import logging
+import random
 
 
 # Configure logging
@@ -69,6 +70,7 @@ def run(cli_args):
     overrides = config_list[slurm_task_id]
     launch_args = [
         f"torchrun --nproc_per_node 1",
+        f"--master-port={random.randint(29400, 29500)}",
         f"--nnodes 1",
         "run.py",
         f"--slurm_run_name {slurm_job_id}_{slurm_task_id}"

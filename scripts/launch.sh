@@ -10,11 +10,12 @@
 #SBATCH --cpus-per-task=24
 #SBATCH --time=48:00:00
 #SBATCH --mem=150GB
-#SBATCH --array=0-2
+#SBATCH --exclude=holygpu8a17201
+#SBATCH --array=0-3
 
 source ~/.bashrc
 conda deactivate
-conda activate coconut
+conda activate coconut_dev
 
 CONFIG=args/gsm_coconut.yaml
 python slurm_run.py sweep_config=$CONFIG

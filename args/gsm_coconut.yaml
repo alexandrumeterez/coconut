@@ -21,10 +21,10 @@ bf16: True
 train_path: /n/netscratch/kempner_sham_lab/Everyone/ameterez/coconut/data/gsm_train.json
 val_path: /n/netscratch/kempner_sham_lab/Everyone/ameterez/coconut/data/gsm_valid.json
 reset_optimizer: True
-batch_size_training: 64
+batch_size_training: 32
 debug: False
-gradient_accumulation_steps: 2
+gradient_accumulation_steps: 4
 num_epochs: 25
 weight_decay: 0.01
 sweep:
-  - lr: [3e-5, 1e-4, 3e-4]
+  - lr: [1e-5, 3e-5, 1e-4, 3e-4]
