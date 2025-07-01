@@ -30,6 +30,7 @@ def get_dataset(path, tokenizer, max_size=1000000000):
         ) + [tokenizer.eos_token_id]
 
         sample = {
+            "answer": sample["answer"],
             "question_tokenized": question_tokenized,
             "steps_tokenized": steps_tokenized,
             "answer_tokenized": answer_tokenized,
